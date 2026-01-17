@@ -8,5 +8,3 @@ __open_proxy__ () {
     echo "curl --proxy-insecure -x \"$proxy_protocol\"://\"$proxy_ip\":\"$proxy_port\" \"http://httpbin.org/ip\""
     curl --proxy-insecure -x "$proxy_protocol"://"$proxy_ip":"$proxy_port" "http://httpbin.org/ip"
 }
-
-__open_proxy__

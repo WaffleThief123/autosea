@@ -2,9 +2,9 @@
 
 # Source module files and env file. 
 source ./data/.env || { echo "Error sourcing .env file, please make sure you've copied .env.example to ./data/.env and filled out all API keys and/or tokens"; exit 1; }
-source ./modules-bash/virustotal.sh || { echo "Error sourcing .virustotal tools, exiting."; exit 1; }
-source ./modules-bash/basics.sh || { echo "Error sourcing .core tools, exiting."; exit 1; }
-source ./modules-bash/text-handler.sh || { echo "Error sourcing text handler tools. exiting!"; exit 1; }
+source ./modules-bash/virustotal.sh || { echo "Error sourcing virustotal tools, exiting."; exit 1; }
+source ./modules-bash/basics.sh || { echo "Error sourcing basics tools, exiting."; exit 1; }
+source ./modules-bash/text-handler.sh || { echo "Error sourcing text-handler tools, exiting."; exit 1; }
 
 # install base reqs
 install_requirements=false
@@ -30,13 +30,13 @@ if [ "$install_requirements" = true ]; then
         info "Using $(highlight "DNF") package manager"
         dnf install -y python3 python3-pip
         success "Installed Python3 and pip"
-        python3 -m pip install -r ./data/python-requrements.txt -qqq
+        python3 -m pip install -r ./data/python-requirements.txt -qqq
         success "Installed Python dependencies quietly."
     elif command -v yum &>/dev/null; then
         info "Using $(highlight "Yum") package manager"
         yum install -y python3 python3-pip
         success "Installed Python3 and pip"
-        python3 -m pip install -r ./data/python-requrements.txt -qqq
+        python3 -m pip install -r ./data/python-requirements.txt -qqq
         success "Installed Python dependencies quietly."
     elif command -v apt &>/dev/null; then
         # Use apt on Debian-based systems (Ubuntu, Debian)
@@ -44,7 +44,7 @@ if [ "$install_requirements" = true ]; then
         apt-get update
         apt-get install -y python3 python3-pip
         success "Installed Python3 and pip"
-        python3 -m pip install -r ./data/python-requrements.txt -qqq
+        python3 -m pip install -r ./data/python-requirements.txt -qqq
         success "Installed Python dependencies quietly."
     else
         error "Unsupported package manager or none found. Exiting."

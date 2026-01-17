@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Pulls the IP list from Amazon's public page, docs on this are here: https://docs.aws.amazon.com/vpc/latest/userguide/aws-ip-ranges.html#aws-ip-download 
-# I wonder if this differs from the internal AWS T&S tool's list. 
+
 
 __UpdateAWSIpList__ () {
     local AWS_IP_LIST_URL="https://ip-ranges.amazonaws.com/ip-ranges.json"
@@ -11,8 +11,8 @@ __UpdateAWSIpList__ () {
         echo "Error: Failed to download AWS IP ranges."
         exit 1
     fi
-    jq '.' "${AWS_IP_LIST_TEMP_PATH}" > ${AWS_IP_LIST_PATH}
-   rm ${AWS_IP_LIST_TEMP_PATH}
+    jq '.' "${AWS_IP_LIST_TEMP_PATH}" > "${AWS_IP_LIST_PATH}"
+    rm "${AWS_IP_LIST_TEMP_PATH}"
 }
 
 # query the cloudflare API, download a copy of their current IP ranges. no api auth keys are needed for this.  Man I hate the JQ hack I need to perform on it but hey if it works it works? -shrug-

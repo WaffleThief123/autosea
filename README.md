@@ -1,32 +1,98 @@
-# AutoSea:
-The Internet is like a giant body of water, everything connected in ways we might not always *sea*.
-This tool (AutoSea) allows Trust & Safety teams as well as Abuse Researchers to get a rough but very quick output of everything related to an input domain and what might show up related to it. 
+# AutoSea
 
-## Installation:
-clone repo, copy ./data/.env.example to ./data/.env and add your own virustotal API key, as found here. https://support.virustotal.com/hc/en-us/articles/115002100149-API
-If you're on macOS, ensure you have brew, Python3, and Pip installed, and then run `python3 -m pip install -r /path/to/repository/data/python-requirements.txt --break-system-packages`
-If you're on linux, the tool *should* successfully install all requirements.  You can run the install phase with the following: `/path/to/repository/core.sh --install-requirements`
+> The Internet is like a giant body of water, everything connected in ways we might not always *sea*.
 
+AutoSea is a reconnaissance tool designed for Trust & Safety teams and Abuse Researchers. It provides rapid analysis of suspicious domains, including URL deobfuscation, HTTP header inspection, DNS lookups, and VirusTotal reputation checks—all with YAML-formatted output for easy documentation.
 
-## Releases:
-The most current release can be found on my Github, https://github.com/wafflethief123/autosea
-## Exit Codes
-| Exit Code | Purpose |
-|---|---|
-| 1 | General Exit, always accompinied with text reason. |
-| 2 | Bad Domain Entry, did not parse/pass regex. |
-| 3 | Bad Domain Entry, no URL provided. |
+## Features
 
-## Contributing: 
-If you have an idea for a change, or wrote an addon module, function, etc, by all means please make a Pull Request/Change Request against the repo with your additional code or tooling.  The desired output is yaml syntaxed to make pasting to notes easy, and looks roughly like so:
+- **URL Deobfuscation** — Automatically converts obfuscated URLs (`hxxp://`, `[.]`, etc.) to standard format
+- **HTTP Header Analysis** — Fetches response headers and follows redirect chains
+- **DNS Lookup** — Resolves domain records via the `host` command
+- **VirusTotal Integration** — Queries VT API for domain reputation and detection counts
+- **YAML Output** — Results formatted for easy pasting into case notes
+
+## Installation
+
+### Prerequisites
+
+- Python 3.x with pip
+- System utilities: `jq`, `curl`, `host`, `base64`, `sha256sum`, `sha512sum`, `sed`, `awk`
+- A [VirusTotal API key](https://support.virustotal.com/hc/en-us/articles/115002100149-API)
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/wafflethief123/autosea.git
+   cd autosea
+   ```
+
+2. Configure your environment:
+   ```bash
+   cp ./data/.env.example ./data/.env
+   # Edit ./data/.env and add your VirusTotal API key
+   ```
+
+3. Install dependencies:
+
+   **Linux** (auto-detects dnf/yum/apt):
+   ```bash
+   ./core.sh --install-requirements
+   ```
+
+   **macOS** (requires Homebrew, Python3, and pip):
+   ```bash
+   python3 -m pip install -r ./data/python-requirements.txt --break-system-packages
+   ```
+
+### Docker
+
+```bash
+# Build and run with a target URL
+TARGET_URL=https://example.com docker-compose up --build
 ```
-commandName:
-    response:
-        thing: output value
-        another thing: with a value
-        a list:
-        - item 1
-        - item 2
-``` 
 
-all you need to do is put the desired addon module in the workding directory, and it will be sourced on startup. If there are any requirements, add them to the YAML list in ./data/requirements.yml following the existing syntax.
+## Usage
+
+```bash
+# Analyze a single domain
+./core.sh https://example.com
+
+# Analyze multiple domains
+./core.sh https://example.com https://example.net https://example.org
+
+# Configure a custom user agent
+./core.sh --user-agent
+```
+
+## Exit Codes
+
+| Code | Description |
+|------|-------------|
+| 1 | General error (accompanied by text explanation) |
+| 2 | Invalid URL format (failed regex validation) |
+| 3 | No URL provided |
+
+## Contributing
+
+Contributions are welcome. To add a new module:
+
+1. Create your module in the working directory (it will be sourced on startup)
+2. Add any new dependencies to `./data/bash-requirements.yml`
+3. Ensure output follows YAML format:
+
+   ```yaml
+   commandName:
+       response:
+           key: value
+           list:
+           - item 1
+           - item 2
+   ```
+
+4. Submit a pull request with your changes
+
+## License
+
+See [LICENSE](LICENSE) for details.

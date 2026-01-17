@@ -10,14 +10,18 @@ def clear_last_line():
 
 def VirusTotalCheck(url, vtapi_key):
     headers = {"x-apikey": vtapi_key}
-    response = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url})
-    response.raise_for_status()
-    vt_analyse = response.json()
-    vt_scan_id = vt_analyse['data']['id']
+    try:
+        response = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url})
+        response.raise_for_status()
+        vt_analyse = response.json()
+        vt_scan_id = vt_analyse['data']['id']
 
-    report_response = requests.get(f"https://www.virustotal.com/api/v3/analyses/{vt_scan_id}", headers=headers)
-    report_response.raise_for_status()
-    vt_report = report_response.json()
+        report_response = requests.get(f"https://www.virustotal.com/api/v3/analyses/{vt_scan_id}", headers=headers)
+        report_response.raise_for_status()
+        vt_report = report_response.json()
+    except requests.RequestException as e:
+        print(f"VirusTotal API error: {e}")
+        sys.exit(1)
 
     stats = vt_report['data']['attributes']['stats']
     vt_harmless_count = stats.get('harmless', 0)
@@ -31,9 +35,13 @@ def VirusTotalCheck(url, vtapi_key):
         print("VirusTotal: Waiting for additional 20s for results.")
         time.sleep(20)
         clear_last_line()  # Clear the waiting message
-        report_response = requests.get(f"https://www.virustotal.com/api/v3/analyses/{vt_scan_id}", headers=headers)
-        report_response.raise_for_status()
-        vt_report = report_response.json()
+        try:
+            report_response = requests.get(f"https://www.virustotal.com/api/v3/analyses/{vt_scan_id}", headers=headers)
+            report_response.raise_for_status()
+            vt_report = report_response.json()
+        except requests.RequestException as e:
+            print(f"VirusTotal API error on retry: {e}")
+            sys.exit(1)
         stats = vt_report['data']['attributes']['stats']
         vt_harmless_count = stats.get('harmless', 0)
         vt_undetected_count = stats.get('undetected', 0)
