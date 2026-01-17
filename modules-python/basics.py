@@ -1,5 +1,7 @@
 import sys
+import os
 import re
+import json
 import base64
 import hashlib
 import requests
@@ -13,6 +15,9 @@ env_vars = dotenv_values(ENV_PATH)
 
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0'
 USER_AGENT = env_vars.get("CUSTOM_USER_AGENT", DEFAULT_USER_AGENT)
+
+def get_output_format():
+    return os.environ.get('OUTPUT_FORMAT', 'yaml')
 
 
 def url_formatter(url):
@@ -30,27 +35,32 @@ def url_formatter(url):
         sys.exit(2)
 
 def curl_headers(url):
+    output_format = get_output_format()
+    results = {'url': url}
+
     try:
         response = requests.get(url, headers={'User-Agent': USER_AGENT}, allow_redirects=True)
-        
+
+        # Collect redirect info
         if response.history:
-            print("Redirect path:")
+            redirects = []
             for redirect in response.history:
                 location = redirect.headers.get('Location', 'Unknown')
-                print(f"  Redirected from: {redirect.url} to {location}")
-            print(f"  Final URL: {response.url}")
+                redirects.append({'from': redirect.url, 'to': location})
+            results['redirects'] = redirects
+            results['final_url'] = response.url
 
-        print("response:")
-        print(f"  status code: {response.status_code}")
+        # Collect response info
+        results['status_code'] = response.status_code
+        headers_dict = {}
         for header in ['Date', 'Content-Type', 'Server', 'Location', 'Via']:
             if header in response.headers:
-                print(f"  {header.lower()}: {response.headers[header]}")
+                headers_dict[header.lower()] = response.headers[header]
+        results['headers'] = headers_dict
 
     except requests.RequestException as e:
         error_message = str(e)
-        # Match SSL Certificate Verification Errors
         ssl_cert_error = re.search(r"SSLCertVerificationError\((.*)\)", error_message)
-        # Match Hostname Mismatch Errors
         hostname_mismatch_error = re.search(r"hostname '.*' doesn't match either of (.*)", error_message)
 
         if ssl_cert_error:
@@ -58,15 +68,32 @@ def curl_headers(url):
         elif hostname_mismatch_error:
             error_summary = f"Hostname Mismatch: {hostname_mismatch_error.group(1)}"
         else:
-            # Simplify the general connection error message
             simple_error_message = re.search(r"Failed to establish a new connection: \[(.*)\]", error_message)
             if simple_error_message:
                 error_summary = simple_error_message.group(1)
             else:
                 error_summary = "Failed to make a request due to a network error."
-        
-        print(f"curl failed: {error_summary}")
-        sys.exit(1)
+
+        results['error'] = error_summary
+
+    # Output results
+    if output_format == 'json':
+        print(json.dumps({"http_response": results}))
+    else:
+        if 'error' in results:
+            print(f"curl failed: {results['error']}")
+            sys.exit(1)
+
+        if 'redirects' in results:
+            print("Redirect path:")
+            for redirect in results['redirects']:
+                print(f"  Redirected from: {redirect['from']} to {redirect['to']}")
+            print(f"  Final URL: {results['final_url']}")
+
+        print("response:")
+        print(f"  status code: {results['status_code']}")
+        for key, value in results.get('headers', {}).items():
+            print(f"  {key}: {value}")
 
 def host_lookup(url):
     domain_regex = r'^(?:http[s]?://)?(?:[a-zA-Z0-9-]+\.)+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?:[/?].*)?$'

@@ -6,18 +6,35 @@ source ./modules-bash/virustotal.sh || { echo "Error sourcing virustotal tools, 
 source ./modules-bash/basics.sh || { echo "Error sourcing basics tools, exiting."; exit 1; }
 source ./modules-bash/text-handler.sh || { echo "Error sourcing text-handler tools, exiting."; exit 1; }
 
-# install base reqs
+# Command-line flags
 install_requirements=false
+config_user_agent=false
+json_output=false
+input_file=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --install-requirements)
             install_requirements=true
             shift
-            ;;        
+            ;;
         --user-agent)
             config_user_agent=true
             shift
+            ;;
+        --json)
+            json_output=true
+            export OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --file)
+            if [[ -n "$2" && ! "$2" =~ ^-- ]]; then
+                input_file="$2"
+                shift 2
+            else
+                error "--file requires a filename argument"
+                exit 1
+            fi
             ;;
         *)
             break
@@ -128,40 +145,108 @@ if [ ${#missing_requirements[@]} -gt 0 ]; then
     exit 1
 fi
 
-# Input check and URL formatter reference.
-if [ -z "$1" ]; then
+# Build URL list from file or command-line arguments
+urls=()
+
+if [[ -n "$input_file" ]]; then
+    if [[ ! -f "$input_file" ]]; then
+        error "Input file not found: $input_file"
+        exit 1
+    fi
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        urls+=("$line")
+    done < "$input_file"
+fi
+
+# Add command-line URLs
+for arg in "$@"; do
+    urls+=("$arg")
+done
+
+# Input check
+if [ ${#urls[@]} -eq 0 ]; then
     error "No URL supplied!"
     info "Please supply one or multiple URLs, like so:"
     highlight "$0 https://example.com"
     info "OR"
     highlight "$0 https://example.com https://example.net https://example.top"
+    info "OR use --file to read URLs from a file:"
+    highlight "$0 --file urls.txt"
     exit 3
 fi
 
-# Main URL processing loop
-for i; do
+# Function to process a single URL
+process_url() {
+    local input_url="$1"
+
     # Deobfuscate the URL
-    info "Deobfuscating URL: $(highlight "${i}")"
-    deobscufator_url=$(python3 ./modules-python/deobscufator.py "${i}")
+    if [[ "$json_output" != "true" ]]; then
+        info "Deobfuscating URL: $(highlight "${input_url}")"
+    fi
+    deobscufator_url=$(python3 ./modules-python/deobscufator.py "${input_url}")
     exit_code=$?
 
     if [ $exit_code -ne 0 ]; then
-        error "Error deobfuscating URL: $(highlight "${i}"). Please deobfuscate manually."
-        exit $exit_code
+        error "Error deobfuscating URL: $(highlight "${input_url}"). Please deobfuscate manually."
+        return $exit_code
     fi
 
-    echo -e "${COLOR_MAGENTA}==================${COLOR_RESET}"
-    info "Input Domain: $(highlight "${i}")"
-    success "De-Obfuscated Domain: $(highlight "${deobscufator_url}")"
+    if [[ "$json_output" != "true" ]]; then
+        echo -e "${COLOR_MAGENTA}==================${COLOR_RESET}"
+        info "Input Domain: $(highlight "${input_url}")"
+        success "De-Obfuscated Domain: $(highlight "${deobscufator_url}")"
+    fi
 
-    # Verify the URL format and run subsequent checks
-    info "Running URL Formatter Check..."
+    # Verify the URL format
+    if [[ "$json_output" != "true" ]]; then
+        info "Running URL Formatter Check..."
+    fi
     python3 ./modules-python/basics.py url_formatter "${deobscufator_url}"
-    info "Fetching Curl Headers..."
+
+    # Fetch HTTP headers
+    if [[ "$json_output" != "true" ]]; then
+        info "Fetching HTTP Headers..."
+    fi
     python3 ./modules-python/basics.py curl_headers "${deobscufator_url}"
-    info "Performing Host Lookup..."
-    python3 ./modules-python/basics.py host_lookup "${deobscufator_url}"
-    info "Checking VirusTotal reputation..."
+
+    # DNS records lookup
+    if [[ "$json_output" != "true" ]]; then
+        info "Performing DNS Records Lookup..."
+    fi
+    python3 ./modules-python/dns_records.py "${deobscufator_url}"
+
+    # WHOIS lookup
+    if [[ "$json_output" != "true" ]]; then
+        info "Performing WHOIS Lookup..."
+    fi
+    python3 ./modules-python/whois_lookup.py "${deobscufator_url}"
+
+    # SSL certificate check
+    if [[ "$json_output" != "true" ]]; then
+        info "Checking SSL Certificate..."
+    fi
+    python3 ./modules-python/ssl_check.py "${deobscufator_url}"
+
+    # Abuse contact lookup
+    if [[ "$json_output" != "true" ]]; then
+        info "Looking up Abuse Contact..."
+    fi
+    python3 ./modules-python/abuse_contact.py "${deobscufator_url}"
+
+    # VirusTotal reputation check
+    if [[ "$json_output" != "true" ]]; then
+        info "Checking VirusTotal reputation..."
+    fi
     python3 ./modules-python/virustotal.py "${deobscufator_url}" "$VTAPI_KEY"
-    echo -e "${COLOR_MAGENTA}==================${COLOR_RESET}\n"
+
+    if [[ "$json_output" != "true" ]]; then
+        echo -e "${COLOR_MAGENTA}==================${COLOR_RESET}\n"
+    fi
+}
+
+# Main URL processing loop
+for url in "${urls[@]}"; do
+    process_url "$url"
 done

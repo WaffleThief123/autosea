@@ -5,3 +5,6 @@ boto3
 python-dotenv
 textual
 pydantic
+python-whois
+dnspython
+cryptography

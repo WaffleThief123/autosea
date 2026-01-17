@@ -8,9 +8,14 @@ AutoSea is a reconnaissance tool designed for Trust & Safety teams and Abuse Res
 
 - **URL Deobfuscation** — Automatically converts obfuscated URLs (`hxxp://`, `[.]`, etc.) to standard format
 - **HTTP Header Analysis** — Fetches response headers and follows redirect chains
-- **DNS Lookup** — Resolves domain records via the `host` command
+- **DNS Records** — Full DNS lookup (A, AAAA, MX, TXT, NS, CNAME, SOA records)
+- **WHOIS Lookup** — Domain registration info with age calculation and warnings for recently registered domains
+- **SSL Certificate Analysis** — Certificate issuer, validity dates, SANs, and expiration warnings
+- **Abuse Contact Lookup** — RDAP-based lookup for abuse reporting contacts
 - **VirusTotal Integration** — Queries VT API for domain reputation and detection counts
-- **YAML Output** — Results formatted for easy pasting into case notes
+- **Batch Processing** — Process multiple URLs from a file
+- **JSON Output** — Optional JSON output for integration with other tools
+- **YAML Output** — Default output formatted for easy pasting into case notes
 
 ## Installation
 
@@ -61,6 +66,15 @@ TARGET_URL=https://example.com docker-compose up --build
 
 # Analyze multiple domains
 ./core.sh https://example.com https://example.net https://example.org
+
+# Process URLs from a file (one URL per line, # for comments)
+./core.sh --file urls.txt
+
+# Output in JSON format (NDJSON - one JSON object per check)
+./core.sh --json https://example.com
+
+# Combine batch processing with JSON output
+./core.sh --json --file urls.txt
 
 # Configure a custom user agent
 ./core.sh --user-agent

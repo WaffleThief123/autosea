@@ -1,6 +1,11 @@
 import sys
+import os
+import json
 import requests
 import time
+
+def get_output_format():
+    return os.environ.get('OUTPUT_FORMAT', 'yaml')
 
 def clear_last_line():
     """Clears the last line in the terminal."""
@@ -9,7 +14,10 @@ def clear_last_line():
 
 
 def VirusTotalCheck(url, vtapi_key):
+    output_format = get_output_format()
+    results = {'url': url}
     headers = {"x-apikey": vtapi_key}
+
     try:
         response = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url})
         response.raise_for_status()
@@ -20,7 +28,11 @@ def VirusTotalCheck(url, vtapi_key):
         report_response.raise_for_status()
         vt_report = report_response.json()
     except requests.RequestException as e:
-        print(f"VirusTotal API error: {e}")
+        results['error'] = str(e)
+        if output_format == 'json':
+            print(json.dumps({"virustotal": results}))
+        else:
+            print(f"VirusTotal API error: {e}")
         sys.exit(1)
 
     stats = vt_report['data']['attributes']['stats']
@@ -32,15 +44,21 @@ def VirusTotalCheck(url, vtapi_key):
     vt_positives = vt_suspicious_count + vt_malicious_count
 
     if vt_total == 0:
-        print("VirusTotal: Waiting for additional 20s for results.")
+        if output_format != 'json':
+            print("VirusTotal: Waiting for additional 20s for results.")
         time.sleep(20)
-        clear_last_line()  # Clear the waiting message
+        if output_format != 'json':
+            clear_last_line()
         try:
             report_response = requests.get(f"https://www.virustotal.com/api/v3/analyses/{vt_scan_id}", headers=headers)
             report_response.raise_for_status()
             vt_report = report_response.json()
         except requests.RequestException as e:
-            print(f"VirusTotal API error on retry: {e}")
+            results['error'] = f"Retry failed: {e}"
+            if output_format == 'json':
+                print(json.dumps({"virustotal": results}))
+            else:
+                print(f"VirusTotal API error on retry: {e}")
             sys.exit(1)
         stats = vt_report['data']['attributes']['stats']
         vt_harmless_count = stats.get('harmless', 0)
@@ -50,15 +68,27 @@ def VirusTotalCheck(url, vtapi_key):
         vt_total = vt_harmless_count + vt_undetected_count + vt_suspicious_count + vt_malicious_count
         vt_positives = vt_suspicious_count + vt_malicious_count
 
-    print("VirusTotal:")
-    print(f"    Submitted URL: {url}")
-    print(f"    VT Detection Count: {vt_positives}/{vt_total}")
-    vt_url = vt_scan_id.split('-')[1]  # Extract ID for URL
-    print(f"    VT Link: https://virustotal.com/gui/url/{vt_url}")
-    print("")
+    vt_url_id = vt_scan_id.split('-')[1]
+    vt_link = f"https://virustotal.com/gui/url/{vt_url_id}"
 
-    # Optionally call VirusTotalDebug here if needed
-    # VirusTotalDebug(vt_scan_id, vt_report)
+    results['detection_count'] = vt_positives
+    results['total_scanners'] = vt_total
+    results['stats'] = {
+        'harmless': vt_harmless_count,
+        'undetected': vt_undetected_count,
+        'suspicious': vt_suspicious_count,
+        'malicious': vt_malicious_count
+    }
+    results['link'] = vt_link
+
+    if output_format == 'json':
+        print(json.dumps({"virustotal": results}))
+    else:
+        print("VirusTotal:")
+        print(f"    Submitted URL: {url}")
+        print(f"    VT Detection Count: {vt_positives}/{vt_total}")
+        print(f"    VT Link: {vt_link}")
+        print("")
 
 def VirusTotalDebug(vt_scan_id, vt_report):
     stats = vt_report['data']['attributes']['stats']
